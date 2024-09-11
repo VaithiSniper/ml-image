@@ -23,18 +23,14 @@ const getCache = (key: string) => {
 
     return data;
   } catch (err) {
+    console.error("Error reading from localStorage", err);
     return null;
   }
 };
 
 export const fetchData = async (state: DataState): Promise<ApiResponse> => {
-  const cacheKey = JSON.stringify({
-    file: state.file.name,
-    camMethods: state.camMethods,
-    topk: state.topk,
-    fetched: true,
-    name: state.name,
-  });
+  const methodsKey = state.camMethods.join('-');
+  const cacheKey = `${state.file.name}-${methodsKey}`;
 
   const cachedData = getCache(cacheKey);
   if (cachedData) {
@@ -59,6 +55,5 @@ export const fetchData = async (state: DataState): Promise<ApiResponse> => {
 
   const data: ApiResponse = await response.json();
   setCache(cacheKey, data);
-
   return data;
 };

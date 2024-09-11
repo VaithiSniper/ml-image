@@ -1,5 +1,5 @@
 import { Dispatch, createContext, useReducer } from "react";
-import { ApiResponse, DataState, Cache } from "@/lib/definitions";
+import { DataState, CacheKey } from "@/lib/definitions";
 
 export enum DataStateActions {
   ADD_DATA = "ADD_DATA",
@@ -14,7 +14,7 @@ export type AddDataStateAction = {
 
 export type DeleteDataStateAction = {
   type: DataStateActions.DELETE_DATA;
-  payload: Cache;
+  payload: CacheKey;
 };
 
 export type DataStateAction = AddDataStateAction | DeleteDataStateAction;
@@ -26,25 +26,20 @@ export const DataReducer = (
   switch (action.type) {
     case DataStateActions.ADD_DATA:
       return [...state, action.payload];
+
     case DataStateActions.DELETE_DATA:
-      let cacheKey = JSON.stringify({
-        file: action.payload.file,
-        camMethods: action.payload.camMethods,
-        topk: action.payload.topk,
-        fetched: action.payload.fetched,
-        name: action.payload.name,
-      });
+      const methodsKey = action.payload.camMethods.join('-');
+      const cacheKey = `${action.payload.file.name}-${methodsKey}`;
+
       try {
-        console.log(localStorage.getItem(cacheKey));
         localStorage.removeItem(cacheKey);
-        console.log("Deleted from localStorage");
-        console.log(localStorage.length)
-      }
-      catch (err) {
+      } catch (err) {
         console.error("Error deleting from localStorage", err);
       }
-      console.log("Deleted from state");
-      return state.filter((data) => data.name !== action.payload.name);
+
+      console.log(`Deleted from state with key: ${cacheKey}`);
+      return state.filter((data) => data.name !== action.payload.file.name);
+
     default:
       return state;
   }
@@ -62,26 +57,37 @@ const createInitialState = () => {
   let initialState: DataState[] = [];
   if (typeof window === "undefined") return initialState;
   for (let i = 0; i < localStorage.length; i++) {
-    if (localStorage.key(i) === null) continue;
     const key = localStorage.key(i);
+    if (!key) continue;
+
+    const [fileName, ...methodsArray] = key.split('-');
     let cacheValue: DataState;
+
     try {
-      cacheValue = JSON.parse(key || "");
-    } catch {
-      continue;
-    }
-    if (key && cacheValue.hasOwnProperty("fetched")) {
-      const data: { data: ApiResponse; expiration: number } = JSON.parse(
-        localStorage.getItem(key) || ""
-      );
-      if (data.expiration < Date.now()) {
+      const cachedObject = JSON.parse(localStorage.getItem(key) || "");
+      const { data, expiration } = cachedObject;
+
+      if (expiration < Date.now()) {
         localStorage.removeItem(key);
         continue;
       }
-      cacheValue = { ...cacheValue, data: data.data };
+
+      cacheValue = {
+        file: data.file,
+        camMethods: methodsArray,
+        topk: cachedObject.topk,
+        name: fileName,
+        data: data,
+        fetched: true,
+      };
+
       initialState.push(cacheValue);
+    } catch (error) {
+      console.error(`Error parsing cache for key: ${key}`, error);
+      continue;
     }
   }
+
   return initialState;
 };
 
@@ -89,12 +95,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [state, dispatch] = useReducer(DataReducer, null, createInitialState);
-  if (typeof window === "undefined")
-    return (
-      <DataContext.Provider value={{ state, dispatch }}>
-        {children}
-      </DataContext.Provider>
-    );
 
   return (
     <DataContext.Provider value={{ state, dispatch }}>

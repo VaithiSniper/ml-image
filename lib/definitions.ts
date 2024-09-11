@@ -1,4 +1,3 @@
-import { error } from "console";
 import { z } from "zod";
 
 export const FormSchema = z.object({
@@ -24,12 +23,9 @@ const ResponseSchema = z.object({
   error: z.string().optional(),
 });
 
-const CacheSchema = z.object({
+const CacheKeySchema = z.object({
   file: z.instanceof(File),
   camMethods: z.array(z.string()),
-  topk: z.number(),
-  name: z.string(),
-  fetched: z.boolean(),
 });
 
 const DataStateSchema = z.object({
@@ -43,4 +39,4 @@ const DataStateSchema = z.object({
 
 export type ApiResponse = z.infer<typeof ResponseSchema>;
 export type DataState = z.infer<typeof DataStateSchema>;
-export type Cache = z.infer<typeof CacheSchema>;
+export type CacheKey = z.infer<typeof CacheKeySchema>;

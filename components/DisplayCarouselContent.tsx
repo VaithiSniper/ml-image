@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState, useTransition } from "react";
-import { useErrorBoundary, ErrorBoundary } from "react-error-boundary";
+import { useErrorBoundary } from "react-error-boundary";
 import {
   Select,
   SelectContent,
@@ -18,7 +18,7 @@ import { Trash2 } from "lucide-react";
 import { DataContext, DataStateActions } from "@/context/data-provider";
 
 const DisplayCarouselContent = ({ state }: { state: DataState }) => {
-  const [data, setData] = useState<ApiResponse | undefined>(undefined);
+  const [data, setData] = useState<DataState>(state);
   const [gradMethod, setGradMethod] = useState<string>("");
   const [camImageUrl, setCamImageUrl] = useState<string>("");
   const [methodsAvailable, setMethodsAvailable] = useState<string[]>([]);
@@ -28,17 +28,21 @@ const DisplayCarouselContent = ({ state }: { state: DataState }) => {
 
   useEffect(() => {
     startTransition(async () => {
-      let data: ApiResponse = state.data;
+      let response: ApiResponse = state.data;
       if (!state.fetched) {
-        data = await fetchData(state);
+        response = await fetchData(state);
       }
-      if (data.hasOwnProperty("error") && data.error) {
-        showBoundary({ message: data.error, state });
+      if (response.hasOwnProperty("error") && response.error) {
+        showBoundary({ message: response.error, state });
         return;
       }
-      setCamImageUrl(data.name || "/chest_placeholder.jpeg");
-      setData(data);
-      const methodsAvailable = Object.keys(data?.cam || {});
+      setCamImageUrl(response.name || "/chest_placeholder.jpeg");
+      setData({
+        ...state,
+        fetched: true,
+        data: response,
+      });
+      const methodsAvailable = Object.keys(response?.cam || {});
       setMethodsAvailable(methodsAvailable);
       setGradMethod(methodsAvailable[0]);
     });
@@ -75,7 +79,7 @@ const DisplayCarouselContent = ({ state }: { state: DataState }) => {
             Filename
           </h1>
           <p className="text-lg text-muted-foreground inline-block">
-            {state.name}
+            {data.name}
           </p>
         </span>
         <Button
@@ -83,11 +87,8 @@ const DisplayCarouselContent = ({ state }: { state: DataState }) => {
             dispatch({
               type: DataStateActions.DELETE_DATA,
               payload: {
-                file: state.file,
-                camMethods: state.camMethods,
-                topk: state.topk,
-                fetched: state.fetched,
-                name: state.name,
+                file: data.file,
+                camMethods: data.camMethods,
               }
             })}
           }
@@ -122,7 +123,7 @@ const DisplayCarouselContent = ({ state }: { state: DataState }) => {
             </SelectContent>
           </Select>
           <PredictionTable
-            data={data}
+            data={data.data}
             camMethod={gradMethod}
             setCamImageUrl={setCamImageUrl}
           />
